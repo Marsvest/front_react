@@ -12,6 +12,8 @@ export const ProjectsPage = () => {
   const [error, setError] = useState<string | null>(null); // Состояние ошибки
   const [selectedTech, setSelectedTech] = useState<string>('All');
   const [isAddFormOpen, setIsAddFormOpen] = useState<boolean>(false); // Открытие формы добавления проекта
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false); // Открытие модального окна с деталями проекта
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null); // Выбранный проект
   const [newProject, setNewProject] = useState<NewProjectForm>({
     title: '',
     description: '',
@@ -71,6 +73,18 @@ export const ProjectsPage = () => {
     });
   };
 
+  // Открытие модального окна с деталями проекта
+  const openProjectModal = (project: Project) => {
+    setSelectedProject(project);
+    setIsModalOpen(true);
+  };
+
+  // Закрытие модального окна
+  const closeProjectModal = () => {
+    setIsModalOpen(false);
+    setSelectedProject(null);
+  };
+
   return (
     <main className="bg-[url('../public/bg.jpg')] bg-cover bg-center min-h-screen flex flex-col items-center">
       <h1 className="text-4xl font-bold mb-6">Мои Проекты</h1>
@@ -94,12 +108,10 @@ export const ProjectsPage = () => {
 
       {/* Форма добавления проекта */}
       {isAddFormOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" // Убедитесь, что z-50 перекрывает остальные элементы
-        >
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <form
             onSubmit={handleAddProject}
-            className="bg-white p-6 rounded-lg w-96 shadow-lg z-60" // Модальное окно с дополнительной тенью и z-index
+            className="bg-white p-6 rounded-lg w-96 shadow-lg"
           >
             <h2 className="text-2xl mb-4">Добавить новый проект</h2>
 
@@ -162,30 +174,6 @@ export const ProjectsPage = () => {
         </div>
       )}
 
-
-      {/* Фильтр по технологиям */}
-      <div className="mb-6">
-        <label className="mr-2">Фильтр по технологиям:</label>
-        <select
-          value={selectedTech}
-          onChange={(e) => setSelectedTech(e.target.value)}
-          className="py-2 px-4 rounded bg-white border border-gray-300"
-        >
-          <option value="All">Все</option>
-          <option value="Python">Python</option>
-          <option value="JavaScript">JavaScript</option>
-          <option value="TypeScript">TypeScript</option>
-          <option value="HTML">HTML</option>
-          <option value="C++">C++</option>
-        </select>
-      </div>
-
-      {/* Индикатор загрузки */}
-      {isLoading && <p className="text-lg font-semibold">Загрузка...</p>}
-
-      {/* Ошибка */}
-      {error && <p className="text-red-500">{error}</p>}
-
       {/* Список проектов */}
       {!isLoading && !error && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -193,6 +181,7 @@ export const ProjectsPage = () => {
             <div
               key={project.id}
               className="bg-white p-4 rounded-lg shadow-md transform transition-all hover:scale-105 hover:shadow-xl cursor-pointer"
+              onClick={() => openProjectModal(project)}
             >
               <h2 className="text-2xl font-semibold mb-2">{project.title}</h2>
               <p className="text-gray-700 mb-4">
@@ -214,6 +203,33 @@ export const ProjectsPage = () => {
               </a>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Модальное окно с деталями проекта */}
+      {isModalOpen && selectedProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-96 shadow-lg relative">
+            <button
+              onClick={closeProjectModal}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
+            >
+              ✕
+            </button>
+            <h2 className="text-3xl font-bold mb-4">{selectedProject.title}</h2>
+            <p className="text-gray-700 mb-4">{selectedProject.description}</p>
+            <p className="text-sm mb-2">
+              <strong>Технологии:</strong> {selectedProject.technologies.join(', ')}
+            </p>
+            <a
+              href={selectedProject.link}
+              className="text-blue-500 hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Перейти к репозиторию
+            </a>
+          </div>
         </div>
       )}
     </main>
