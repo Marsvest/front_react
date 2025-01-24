@@ -92,10 +92,14 @@ export const ProjectsPage = () => {
       {/* Кнопка обновления */}
       <button
         onClick={fetchProjects}
-        className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        className="mb-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
         disabled={isLoading} // Блокируем кнопку во время загрузки
       >
-        {isLoading ? 'Обновление...' : 'Обновить проекты'}
+        {isLoading ? (
+          <div className="w-5 h-5 border-2 border-t-2 border-white rounded-full animate-spin"></div>
+        ) : (
+          'Обновить проекты'
+        )}
       </button>
 
       {/* Кнопка "Добавить проект" */}
@@ -232,6 +236,9 @@ export const ProjectsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Ошибка */}
+      {error && <p className="text-red-500 mt-4">{error}</p>}
     </main>
   );
 };
