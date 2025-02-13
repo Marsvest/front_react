@@ -1,13 +1,14 @@
 import { useReducer, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { addProject, loadProjects, setFilter } from '../features/projectsSlice';
+import { addProject, loadProjects, setFilter, deleteProject } from '../features/projectsSlice';
 import { Project } from '../types/Project';
 import { v4 as uuidv4 } from 'uuid';
-import bgImage from '/public/bg.jpg';
+import bgImage from '/bg.jpg';
 
 const initialState = {
   selectedTech: [],
+  selectedCategory: '', // выбранная категория
   isDetailModalOpen: false,
   isAddModalOpen: false,
   selectedProject: null,
@@ -16,7 +17,7 @@ const initialState = {
     description: '',
     technologies: [],
     link: '',
-    category: ''
+    category: '' // добавлено поле категории
   }
 };
 
@@ -24,6 +25,8 @@ const reducer = (state, action) => {
   switch (action.type) {
     case 'SET_SELECTED_TECH':
       return { ...state, selectedTech: action.payload };
+    case 'SET_SELECTED_CATEGORY': // обработка выбранной категории
+      return { ...state, selectedCategory: action.payload };
     case 'TOGGLE_DETAIL_MODAL':
       return { ...state, isDetailModalOpen: action.payload };
     case 'TOGGLE_ADD_MODAL':
@@ -52,10 +55,11 @@ export const ProjectsPage = () => {
       return [];
     }
     return projects.filter((project) => {
-      if (state.selectedTech.length === 0) return true;
-      return state.selectedTech.some(tech => project.technologies.includes(tech));
+      const matchesTech = state.selectedTech.length === 0 || state.selectedTech.some(tech => project.technologies.includes(tech));
+      const matchesCategory = state.selectedCategory ? project.category === state.selectedCategory : true;
+      return matchesTech && matchesCategory;
     });
-  }, [projects, state.selectedTech]);
+  }, [projects, state.selectedTech, state.selectedCategory]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     dispatchLocal({
@@ -67,8 +71,11 @@ export const ProjectsPage = () => {
   const handleTechSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const options = Array.from(e.target.selectedOptions);
     const technologies = options.map(option => option.value);
-    dispatchLocal({ type: 'SET_SELECTED_TECH', payload: technologies });
-    dispatch(setFilter(technologies));
+    dispatchLocal({ type: 'SET_NEW_PROJECT', payload: { name: 'technologies', value: technologies } });
+  };
+
+  const handleCategorySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    dispatchLocal({ type: 'SET_SELECTED_CATEGORY', payload: e.target.value });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -105,6 +112,21 @@ export const ProjectsPage = () => {
           </div>
 
           <div className="mb-6 text-center">
+            <label className="mr-2">Фильтр по категориям:</label>
+            <select
+              value={state.selectedCategory}
+              onChange={handleCategorySelect}
+              className="py-2 px-4 rounded bg-white border border-gray-300"
+            >
+              <option value="">Все категории</option>
+              <option value="Web Applications">Веб-приложения</option>
+              <option value="Mobile Applications">Мобильные приложения</option>
+              <option value="Desktop">Десктоп</option>
+              <option value="Other">Другое</option>
+            </select>
+          </div>
+
+          <div className="mb-6 text-center">
             <label className="mr-2">Фильтр по технологиям:</label>
             <select
               multiple
@@ -132,6 +154,7 @@ export const ProjectsPage = () => {
                 >
                   <h2 className="text-2xl font-semibold mb-2">{project.title}</h2>
                   <p className="text-gray-700 mb-4">{project.description}</p>
+                  <p className="text-gray-500 mb-4"><strong>Категория:</strong> {project.category}</p>
                   <a
                     href={project.link}
                     className="text-blue-500 hover:underline"
@@ -168,6 +191,7 @@ export const ProjectsPage = () => {
                 ))}
               </ul>
             </div>
+            <p className="text-gray-500 mb-4"><strong>Категория:</strong> {state.selectedProject.category}</p>
             <a
               href={state.selectedProject.link}
               className="text-blue-500 hover:underline"
@@ -176,6 +200,19 @@ export const ProjectsPage = () => {
             >
               Перейти к проекту
             </a>
+
+            {/* Кнопка для удаления проекта */}
+            <button
+              onClick={() => {
+                if (state.selectedProject?.id) {
+                  dispatch(deleteProject(state.selectedProject.id));
+                  dispatchLocal({ type: 'TOGGLE_DETAIL_MODAL', payload: false });
+                }
+              }}
+              className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+            >
+              Удалить проект
+            </button>
           </div>
         </div>
       )}
@@ -224,9 +261,26 @@ export const ProjectsPage = () => {
                 />
               </div>
               <div className="mb-4">
+                <label>Категория:</label>
+                <select
+                  name="category"
+                  value={state.newProject.category}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border rounded"
+                  required
+                >
+                  <option value="">Выберите категорию</option>
+                  <option value="Web Applications">Веб-приложения</option>
+                  <option value="Mobile Applications">Мобильные приложения</option>
+                  <option value="Desktop">Десктоп</option>
+                  <option value="Other">Другое</option>
+                </select>
+              </div>
+              <div className="mb-4">
                 <label>Технологии:</label>
                 <select
                   multiple
+                  name="technologies"
                   value={state.newProject.technologies}
                   onChange={handleTechSelect}
                   className="w-full p-2 border rounded"
@@ -245,6 +299,7 @@ export const ProjectsPage = () => {
                 Добавить проект
               </button>
             </form>
+
           </div>
         </div>
       )}

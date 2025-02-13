@@ -14,6 +14,7 @@ const initialState: ProjectState = {
 
 export const localStorageMiddleware: Middleware = (store) => (next) => (action) => {
     const result = next(action);
+    // После добавления или удаления проекта сохраняем состояние в localStorage
     if (action.type === 'projects/addProject' || action.type === 'projects/deleteProject') {
         const state = store.getState() as { projects: ProjectState };
         localStorage.setItem('projects', JSON.stringify(state.projects.projects));
@@ -51,6 +52,7 @@ export const projectsSlice = createSlice({
             }
         },
         deleteProject: (state, action: PayloadAction<string>) => {
+            // Удаляем проект из массива проектов и фильтрованных проектов
             state.projects = state.projects.filter((project) => project.id !== action.payload);
             state.filteredProjects = state.filteredProjects.filter(
                 (project) => project.id !== action.payload
