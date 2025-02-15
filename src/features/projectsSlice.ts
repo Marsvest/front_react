@@ -31,7 +31,7 @@ export const fetchProjects = createAsyncThunk(
 
 export const localStorageMiddleware: Middleware = (store) => (next) => (action) => {
     const result = next(action);
-    if (action.type === 'projects/addProject' || action.type === 'projects/deleteProject') {
+    if (action.type === addProject.type || action.type === deleteProject.type) {
         const state = store.getState() as { projects: ProjectState };
         localStorage.setItem('projects', JSON.stringify(state.projects.projects));
     }
