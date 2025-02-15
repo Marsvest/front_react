@@ -56,7 +56,7 @@ const initialState = {
     description: '',
     technologies: [] as string[],
     link: '',
-    category: '' 
+    category: ''
   }
 };
 
@@ -100,11 +100,18 @@ export const ProjectsPage = () => {
     });
   }, [projects, state.selectedTech, state.selectedCategory]);
 
+  const validFields = ['title', 'description', 'technologies', 'link', 'category'];
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    dispatchLocal({
-      type: 'SET_NEW_PROJECT',
-      payload: { name: e.target.name, value: e.target.value }
-    });
+    const fieldName = e.target.name;
+    if (validFields.includes(fieldName)) {
+      dispatchLocal({
+        type: 'SET_NEW_PROJECT',
+        payload: { name: fieldName as keyof Project, value: e.target.value }
+      });
+    } else {
+      console.warn(`Недопустимое поле: ${fieldName}`);
+    }
   };
 
   const handleTechSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -137,11 +144,18 @@ export const ProjectsPage = () => {
   };
 
   useEffect(() => {
+    const body = document.body;
     if (state.isDetailModalOpen || state.isAddModalOpen) {
-      document.body.style.overflow = 'hidden';
+      body.classList.add('modal-open');
+      body.classList.remove('modal-closed');
     } else {
-      document.body.style.overflow = 'auto';
+      body.classList.add('modal-closed');
+      body.classList.remove('modal-open');
     }
+
+    return () => {
+      body.classList.remove('modal-open', 'modal-closed');
+    };
   }, [state.isDetailModalOpen, state.isAddModalOpen]);
 
   return (
@@ -213,7 +227,7 @@ export const ProjectsPage = () => {
                   >
                     <button
                       onClick={(e) => {
-                        e.stopPropagation(); 
+                        e.stopPropagation();
                         handleDeleteProject(project.id);
                       }}
                       className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded hover:bg-red-600 focus:outline-none"

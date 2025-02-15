@@ -6,6 +6,7 @@ import { HomePage } from './pages/HomePage';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { SkillsPage } from './pages/SkillsPage';
+import './App.css'
 
 const App = () => {
   return (
