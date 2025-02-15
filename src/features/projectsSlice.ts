@@ -58,17 +58,7 @@ export const projectsSlice = createSlice({
                     state.filteredProjects = [];
                 }
             }
-        },
-        setFilter: (state, action: PayloadAction<string[]>) => {
-            const selectedTech = action.payload;
-            if (selectedTech.length === 0) {
-                state.filteredProjects = state.projects;
-            } else {
-                state.filteredProjects = state.projects.filter((project) =>
-                    selectedTech.some((tech) => project.technologies.includes(tech))
-                );
-            }
-        },
+        }
         deleteProject: (state, action: PayloadAction<string>) => {
             state.projects = state.projects.filter((project) => project.id !== action.payload);
             state.filteredProjects = state.filteredProjects.filter(
@@ -94,5 +84,5 @@ export const projectsSlice = createSlice({
     }
 });
 
-export const { addProject, loadProjects, setFilter, deleteProject } = projectsSlice.actions;
+export const { addProject, loadProjects, deleteProject } = projectsSlice.actions;
 export default projectsSlice.reducer;
