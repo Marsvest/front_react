@@ -1,11 +1,11 @@
-import axios from 'axios';
+// services/githubService.ts
+import apiClient from './apiClient';
+import { GitHubRepoResponse } from '../types/GitHubRepoResponse';
 import { Project } from '../types/Project';
-
-const GITHUB_API_URL = 'https://api.github.com'
 
 export async function getPublicRepos(username: string): Promise<Project[]> {
     try {
-        const response = await axios.get<any[]>(`${GITHUB_API_URL}/users/${username}/repos`, {
+        const response = await apiClient.get<GitHubRepoResponse[]>(`/users/${username}/repos`, {
             params: {
                 type: 'public',
             },
