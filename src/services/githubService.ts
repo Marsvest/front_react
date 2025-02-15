@@ -1,9 +1,14 @@
-// services/githubService.ts
 import apiClient from './apiClient';
 import { GitHubRepoResponse } from '../types/GitHubRepoResponse';
 import { Project } from '../types/Project';
 
-export async function getPublicRepos(username: string): Promise<Project[]> {
+const MAX_RETRIES = 3; // Максимальное количество повторных попыток
+const RETRY_DELAY_MS = 2000; // Задержка между попытками (в миллисекундах)
+
+export async function getPublicRepos(
+    username: string,
+    retriesLeft: number = MAX_RETRIES
+): Promise<Project[]> {
     try {
         const response = await apiClient.get<GitHubRepoResponse[]>(`/users/${username}/repos`, {
             params: {
@@ -22,7 +27,16 @@ export async function getPublicRepos(username: string): Promise<Project[]> {
 
         return projects;
     } catch (error) {
-        console.error('Ошибка при получении репозиториев:', error);
-        throw error;
+        if (retriesLeft > 0) {
+            console.warn(
+                `Ошибка при получении репозиториев. Осталось попыток: ${retriesLeft - 1}`
+            );
+            await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+
+            return getPublicRepos(username, retriesLeft - 1);
+        }
+
+        console.error('Превышено максимальное количество попыток:', error);
+        throw error; // Передаем ошибку дальше, если все попытки исчерпаны
     }
 }
