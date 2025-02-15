@@ -1,20 +1,36 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { Project } from '../types/Project';
 import { Middleware } from 'redux';
+import { getPublicRepos } from '../services/githubService';
 
 type ProjectState = {
     projects: Project[];
     filteredProjects: Project[];
+    isLoading: boolean;
+    error: string | null; 
 };
 
 const initialState: ProjectState = {
     projects: [],
     filteredProjects: [],
+    isLoading: false,
+    error: null,
 };
+
+export const fetchProjects = createAsyncThunk(
+    'projects/fetchProjects',
+    async (username: string, { rejectWithValue }) => {
+        try {
+            const projects = await getPublicRepos(username); 
+            return projects;
+        } catch (error) {
+            return rejectWithValue('Не удалось загрузить проекты');
+        }
+    }
+);
 
 export const localStorageMiddleware: Middleware = (store) => (next) => (action) => {
     const result = next(action);
-    // После добавления или удаления проекта сохраняем состояние в localStorage
     if (action.type === 'projects/addProject' || action.type === 'projects/deleteProject') {
         const state = store.getState() as { projects: ProjectState };
         localStorage.setItem('projects', JSON.stringify(state.projects.projects));
@@ -28,18 +44,20 @@ export const projectsSlice = createSlice({
     reducers: {
         addProject: (state, action: PayloadAction<Project>) => {
             state.projects.push(action.payload);
+            state.filteredProjects = state.projects;
         },
         loadProjects: (state) => {
             const saved = localStorage.getItem('projects');
             if (saved) {
                 try {
                     state.projects = JSON.parse(saved);
+                    state.filteredProjects = state.projects;
                 } catch (e) {
                     console.error('Error parsing projects from localStorage', e);
                     state.projects = [];
+                    state.filteredProjects = [];
                 }
             }
-            state.filteredProjects = state.projects;
         },
         setFilter: (state, action: PayloadAction<string[]>) => {
             const selectedTech = action.payload;
@@ -52,12 +70,27 @@ export const projectsSlice = createSlice({
             }
         },
         deleteProject: (state, action: PayloadAction<string>) => {
-            // Удаляем проект из массива проектов и фильтрованных проектов
             state.projects = state.projects.filter((project) => project.id !== action.payload);
             state.filteredProjects = state.filteredProjects.filter(
                 (project) => project.id !== action.payload
             );
         }
+    },
+    extraReducers: (builder) => {
+        builder
+            .addCase(fetchProjects.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(fetchProjects.fulfilled, (state, action: PayloadAction<Project[]>) => {
+                state.isLoading = false;
+                state.projects = action.payload; 
+                state.filteredProjects = action.payload;
+            })
+            .addCase(fetchProjects.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload as string;
+            });
     }
 });
 
