@@ -1,31 +1,71 @@
-import { useReducer, useEffect, useMemo } from 'react';
+import { useReducer, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { addProject, loadProjects, setFilter, deleteProject } from '../features/projectsSlice';
+import { addProject, fetchProjects } from '../features/projectsSlice';
 import { Project } from '../types/Project';
 import { v4 as uuidv4 } from 'uuid';
 import bgImage from '/bg.jpg';
+import ProjectsList from '../components/ProjectList';
+
+
+type SetSelectedTechAction = {
+  type: 'SET_SELECTED_TECH';
+  payload: string[];
+};
+
+type SetSelectedCategoryAction = {
+  type: 'SET_SELECTED_CATEGORY';
+  payload: string;
+};
+
+type ToggleDetailModalAction = {
+  type: 'TOGGLE_DETAIL_MODAL';
+  payload: boolean;
+};
+
+type ToggleAddModalAction = {
+  type: 'TOGGLE_ADD_MODAL';
+  payload: boolean;
+};
+
+type SetSelectedProjectAction = {
+  type: 'SET_SELECTED_PROJECT';
+  payload: Project | null;
+};
+
+type SetNewProjectAction = {
+  type: 'SET_NEW_PROJECT';
+  payload: { name: keyof Project; value: string | string[] };
+};
+
+type Action =
+  | SetSelectedTechAction
+  | SetSelectedCategoryAction
+  | ToggleDetailModalAction
+  | ToggleAddModalAction
+  | SetSelectedProjectAction
+  | SetNewProjectAction;
 
 const initialState = {
-  selectedTech: [],
-  selectedCategory: '', // выбранная категория
+  selectedTech: [] as string[],
+  selectedCategory: '',
   isDetailModalOpen: false,
   isAddModalOpen: false,
-  selectedProject: null,
+  selectedProject: null as Project | null,
   newProject: {
     title: '',
     description: '',
-    technologies: [],
+    technologies: [] as string[],
     link: '',
-    category: '' // добавлено поле категории
+    category: ''
   }
 };
 
-const reducer = (state, action) => {
+const reducer = (state: typeof initialState, action: Action) => {
   switch (action.type) {
     case 'SET_SELECTED_TECH':
       return { ...state, selectedTech: action.payload };
-    case 'SET_SELECTED_CATEGORY': // обработка выбранной категории
+    case 'SET_SELECTED_CATEGORY':
       return { ...state, selectedCategory: action.payload };
     case 'TOGGLE_DETAIL_MODAL':
       return { ...state, isDetailModalOpen: action.payload };
@@ -43,35 +83,34 @@ const reducer = (state, action) => {
 export const ProjectsPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const projects = useSelector((state: RootState) => state.projects.projects);
+  const isLoading = useSelector((state: RootState) => state.projects.isLoading);
+  const error = useSelector((state: RootState) => state.projects.error);
   const [state, dispatchLocal] = useReducer(reducer, initialState);
 
-  useEffect(() => {
-    dispatch(loadProjects());
-  }, [dispatch]);
+  const username: string | undefined = (process.env.REACT_APP_GITHUB_USERNAME as string)
 
-  const filteredProjects = useMemo(() => {
-    if (!Array.isArray(projects)) {
-      console.error('projects is not an array:', projects);
-      return [];
-    }
-    return projects.filter((project) => {
-      const matchesTech = state.selectedTech.length === 0 || state.selectedTech.some(tech => project.technologies.includes(tech));
-      const matchesCategory = state.selectedCategory ? project.category === state.selectedCategory : true;
-      return matchesTech && matchesCategory;
-    });
-  }, [projects, state.selectedTech, state.selectedCategory]);
+  useEffect(() => {
+    dispatch(fetchProjects(username));
+  }, [dispatch, username]);
+
+  const validFields = ['title', 'description', 'technologies', 'link', 'category'];
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    dispatchLocal({
-      type: 'SET_NEW_PROJECT',
-      payload: { name: e.target.name, value: e.target.value }
-    });
+    const fieldName = e.target.name;
+    if (validFields.includes(fieldName)) {
+      dispatchLocal({
+        type: 'SET_NEW_PROJECT',
+        payload: { name: fieldName as keyof Project, value: e.target.value }
+      });
+    } else {
+      console.warn(`Недопустимое поле: ${fieldName}`);
+    }
   };
 
   const handleTechSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const options = Array.from(e.target.selectedOptions);
     const technologies = options.map(option => option.value);
-    dispatchLocal({ type: 'SET_NEW_PROJECT', payload: { name: 'technologies', value: technologies } });
+    dispatchLocal({ type: 'SET_SELECTED_TECH', payload: technologies });
   };
 
   const handleCategorySelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -89,12 +128,23 @@ export const ProjectsPage = () => {
     });
   };
 
+  const handleRefreshProjects = () => {
+    dispatch(fetchProjects(username));
+  };
+
   useEffect(() => {
+    const body = document.body;
     if (state.isDetailModalOpen || state.isAddModalOpen) {
-      document.body.style.overflow = 'hidden';
+      body.classList.add('modal-open');
+      body.classList.remove('modal-closed');
     } else {
-      document.body.style.overflow = 'auto';
+      body.classList.add('modal-closed');
+      body.classList.remove('modal-open');
     }
+
+    return () => {
+      body.classList.remove('modal-open', 'modal-closed');
+    };
   }, [state.isDetailModalOpen, state.isAddModalOpen]);
 
   return (
@@ -103,14 +153,21 @@ export const ProjectsPage = () => {
         <div className="bg-gray-100 p-6 rounded-lg shadow-md max-w-3xl w-full">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-4xl font-bold text-center">Мои Проекты</h1>
-            <button
-              onClick={() => dispatchLocal({ type: 'TOGGLE_ADD_MODAL', payload: true })}
-              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              Добавить проект
-            </button>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => dispatchLocal({ type: 'TOGGLE_ADD_MODAL', payload: true })}
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              >
+                Добавить проект
+              </button>
+              <button
+                onClick={handleRefreshProjects}
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+              >
+                Обновить проекты
+              </button>
+            </div>
           </div>
-
           <div className="mb-6 text-center">
             <label className="mr-2">Фильтр по категориям:</label>
             <select
@@ -125,7 +182,6 @@ export const ProjectsPage = () => {
               <option value="Other">Другое</option>
             </select>
           </div>
-
           <div className="mb-6 text-center">
             <label className="mr-2">Фильтр по технологиям:</label>
             <select
@@ -140,133 +196,61 @@ export const ProjectsPage = () => {
               <option value="Telegram">Telegram</option>
             </select>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredProjects.length > 0 ? (
-              filteredProjects.map((project) => (
-                <div
-                  key={project.id}
-                  className="bg-white p-4 rounded-lg shadow-md transform transition-all hover:scale-105 hover:shadow-xl cursor-pointer"
-                  onClick={() => {
-                    dispatchLocal({ type: 'SET_SELECTED_PROJECT', payload: project });
-                    dispatchLocal({ type: 'TOGGLE_DETAIL_MODAL', payload: true });
-                  }}
-                >
-                  <h2 className="text-2xl font-semibold mb-2">{project.title}</h2>
-                  <p className="text-gray-700 mb-4">{project.description}</p>
-                  <p className="text-gray-500 mb-4"><strong>Категория:</strong> {project.category}</p>
-                  <a
-                    href={project.link}
-                    className="text-blue-500 hover:underline"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Посмотреть проект
-                  </a>
-                </div>
-              ))
-            ) : (
-              <p>Нет проектов</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {state.isDetailModalOpen && state.selectedProject && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-8 rounded-lg w-full max-w-3xl relative">
-            <button
-              onClick={() => dispatchLocal({ type: 'TOGGLE_DETAIL_MODAL', payload: false })}
-              className="absolute top-4 right-4 text-gray-700 text-lg"
-            >
-              ×
-            </button>
-            <h2 className="text-3xl font-bold mb-4">{state.selectedProject.title}</h2>
-            <p className="text-gray-700 mb-4">{state.selectedProject.description}</p>
-            <div className="mb-4">
-              <strong>Технологии:</strong>
-              <ul className="list-disc ml-5">
-                {state.selectedProject.technologies.map((tech) => (
-                  <li key={tech}>{tech}</li>
-                ))}
-              </ul>
-            </div>
-            <p className="text-gray-500 mb-4"><strong>Категория:</strong> {state.selectedProject.category}</p>
-            <a
-              href={state.selectedProject.link}
-              className="text-blue-500 hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Перейти к проекту
-            </a>
-
-            {/* Кнопка для удаления проекта */}
-            <button
-              onClick={() => {
-                if (state.selectedProject?.id) {
-                  dispatch(deleteProject(state.selectedProject.id));
-                  dispatchLocal({ type: 'TOGGLE_DETAIL_MODAL', payload: false });
-                }
-              }}
-              className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
-            >
-              Удалить проект
-            </button>
-          </div>
+          <ProjectsList
+            isLoading={isLoading}
+            error={error}
+            projects={projects}
+            selectedTech={state.selectedTech}
+            selectedCategory={state.selectedCategory}
+            dispatchLocal={dispatchLocal}
+          />
         </div>
       )}
 
       {state.isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white p-8 rounded-lg w-full max-w-2xl relative">
-            <button
-              onClick={() => dispatchLocal({ type: 'TOGGLE_ADD_MODAL', payload: false })}
-              className="absolute top-4 right-4 text-gray-700 text-lg"
-            >
-              ×
-            </button>
-            <h2 className="text-2xl font-bold mb-4">Добавить новый проект</h2>
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Добавить новый проект</h2>
+              <button
+                onClick={() => dispatchLocal({ type: 'TOGGLE_ADD_MODAL', payload: false })}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
             <form onSubmit={handleSubmit}>
               <div className="mb-4">
-                <label>Название:</label>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Название проекта:</label>
                 <input
                   type="text"
                   name="title"
                   value={state.newProject.title}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   required
                 />
               </div>
               <div className="mb-4">
-                <label>Описание:</label>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Описание:</label>
                 <textarea
                   name="description"
                   value={state.newProject.description}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                  rows={4}
                   required
-                />
+                ></textarea>
               </div>
               <div className="mb-4">
-                <label>Ссылка:</label>
-                <input
-                  type="url"
-                  name="link"
-                  value={state.newProject.link}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
-                  required
-                />
-              </div>
-              <div className="mb-4">
-                <label>Категория:</label>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Категория:</label>
                 <select
                   name="category"
                   value={state.newProject.category}
                   onChange={handleInputChange}
-                  className="w-full p-2 border rounded"
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   required
                 >
                   <option value="">Выберите категорию</option>
@@ -277,13 +261,17 @@ export const ProjectsPage = () => {
                 </select>
               </div>
               <div className="mb-4">
-                <label>Технологии:</label>
+                <label className="block text-gray-700 text-sm font-bold mb-2">Технологии:</label>
                 <select
                   multiple
                   name="technologies"
                   value={state.newProject.technologies}
-                  onChange={handleTechSelect}
-                  className="w-full p-2 border rounded"
+                  onChange={(e) => {
+                    const options = Array.from(e.target.selectedOptions);
+                    const technologies = options.map(option => option.value);
+                    dispatchLocal({ type: 'SET_NEW_PROJECT', payload: { name: 'technologies', value: technologies } });
+                  }}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                   required
                 >
                   <option value="Python">Python</option>
@@ -292,14 +280,62 @@ export const ProjectsPage = () => {
                   <option value="Telegram">Telegram</option>
                 </select>
               </div>
-              <button
-                type="submit"
-                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
-              >
-                Добавить проект
-              </button>
+              <div className="mb-4">
+                <label className="block text-gray-700 text-sm font-bold mb-2">Ссылка:</label>
+                <input
+                  type="text"
+                  name="link"
+                  value={state.newProject.link}
+                  onChange={handleInputChange}
+                  className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => dispatchLocal({ type: 'TOGGLE_ADD_MODAL', payload: false })}
+                  className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mr-2"
+                >
+                  Отмена
+                </button>
+                <button
+                  type="submit"
+                  className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                >
+                  Добавить
+                </button>
+              </div>
             </form>
+          </div>
+        </div>
+      )}
 
+      {/* Модальное окно деталей проекта */}
+      {state.isDetailModalOpen && state.selectedProject && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-50">
+          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">{state.selectedProject.title}</h2>
+              <button
+                onClick={() => dispatchLocal({ type: 'TOGGLE_DETAIL_MODAL', payload: false })}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-gray-700 mb-4">{state.selectedProject.description}</p>
+            <p className="text-gray-500 mb-4"><strong>Категория:</strong> {state.selectedProject.category}</p>
+            <p className="text-gray-500 mb-4"><strong>Технологии:</strong> {state.selectedProject.technologies.join(', ')}</p>
+            <a
+              href={state.selectedProject.link}
+              className="text-blue-500 hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Посмотреть проект
+            </a>
           </div>
         </div>
       )}
