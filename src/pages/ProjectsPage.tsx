@@ -1,10 +1,49 @@
 import { useReducer, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../store';
-import { addProject, loadProjects, setFilter, deleteProject } from '../features/projectsSlice';
+import { addProject, deleteProject, fetchProjects } from '../features/projectsSlice';
 import { Project } from '../types/Project';
 import { v4 as uuidv4 } from 'uuid';
 import bgImage from '/bg.jpg';
+
+
+type SetSelectedTechAction = {
+  type: 'SET_SELECTED_TECH';
+  payload: string[];
+};
+
+type SetSelectedCategoryAction = {
+  type: 'SET_SELECTED_CATEGORY';
+  payload: string;
+};
+
+type ToggleDetailModalAction = {
+  type: 'TOGGLE_DETAIL_MODAL';
+  payload: boolean;
+};
+
+type ToggleAddModalAction = {
+  type: 'TOGGLE_ADD_MODAL';
+  payload: boolean;
+};
+
+type SetSelectedProjectAction = {
+  type: 'SET_SELECTED_PROJECT';
+  payload: Project | null;
+};
+
+type SetNewProjectAction = {
+  type: 'SET_NEW_PROJECT';
+  payload: { name: keyof Project; value: string | string[] };
+};
+
+type Action =
+  | SetSelectedTechAction
+  | SetSelectedCategoryAction
+  | ToggleDetailModalAction
+  | ToggleAddModalAction
+  | SetSelectedProjectAction
+  | SetNewProjectAction;
 
 const initialState = {
   selectedTech: [] as string[],
@@ -17,11 +56,11 @@ const initialState = {
     description: '',
     technologies: [] as string[],
     link: '',
-    category: ''
+    category: '' 
   }
 };
 
-const reducer = (state: typeof initialState, action: any) => {
+const reducer = (state: typeof initialState, action: Action) => {
   switch (action.type) {
     case 'SET_SELECTED_TECH':
       return { ...state, selectedTech: action.payload };
@@ -43,19 +82,17 @@ const reducer = (state: typeof initialState, action: any) => {
 export const ProjectsPage = () => {
   const dispatch = useDispatch<AppDispatch>();
   const projects = useSelector((state: RootState) => state.projects.projects);
-  const isLoading = useSelector((state: RootState) => state.projects.isLoading); 
+  const isLoading = useSelector((state: RootState) => state.projects.isLoading);
   const error = useSelector((state: RootState) => state.projects.error);
   const [state, dispatchLocal] = useReducer(reducer, initialState);
 
+  const username: string | undefined = (process.env.REACT_APP_GITHUB_USERNAME as string)
+
   useEffect(() => {
-    dispatch(fetchProjects('marsvest'));
-  }, [dispatch]);
+    dispatch(fetchProjects(username));
+  }, [dispatch, username]);
 
   const filteredProjects = useMemo(() => {
-    if (!Array.isArray(projects)) {
-      console.error('projects is not an array:', projects);
-      return [];
-    }
     return projects.filter((project) => {
       const matchesTech = state.selectedTech.length === 0 || state.selectedTech.some(tech => project.technologies.includes(tech));
       const matchesCategory = state.selectedCategory ? project.category === state.selectedCategory : true;
@@ -92,7 +129,7 @@ export const ProjectsPage = () => {
   };
 
   const handleRefreshProjects = () => {
-    dispatch(fetchProjects('marsvest'));
+    dispatch(fetchProjects(username));
   };
 
   const handleDeleteProject = (projectId: string) => {
@@ -176,7 +213,7 @@ export const ProjectsPage = () => {
                   >
                     <button
                       onClick={(e) => {
-                        e.stopPropagation();
+                        e.stopPropagation(); 
                         handleDeleteProject(project.id);
                       }}
                       className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded hover:bg-red-600 focus:outline-none"
